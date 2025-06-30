@@ -1,7 +1,8 @@
 import { Injectable } from "@nestjs/common";
-import { UserService } from "./user"
+import { Infrastructure } from '../infrastructure';
 import { Repository } from "../repository";
 import { Utils } from "../utils";
+import { UserService } from "./user";
 
 @Injectable()
 export class Service {
@@ -9,7 +10,8 @@ export class Service {
     constructor(
         repo : Repository,
         utils : Utils,
+        infra: Infrastructure,
     ) {
-        this.userService = new UserService(repo,utils);
+        this.userService = new UserService(repo,utils,infra);
     }
 }

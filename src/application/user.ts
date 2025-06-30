@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Req , Headers, Post, Body} from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { User } from 'src/domain/user';
 import { Service } from '../service';
 import * as r from "./response";
@@ -8,6 +8,16 @@ export class UserController {
   constructor(
     private readonly svc: Service
     ) {}
+
+  @Get("/bull")
+  async BullTest(): Promise<any>  {
+   try {
+     return this.svc.userService.BullTest();
+    //  return r.Result(0);
+   } catch (error) {
+    return r.Error(error);
+   }
+  }  
 
   @Post("/signup")
   async SignUp(@Body() req : User.UserDTO): Promise<any>  {

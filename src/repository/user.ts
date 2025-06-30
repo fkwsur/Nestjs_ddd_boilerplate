@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { Infrastructure } from "src/infrastructure";
 import { Prisma } from "@prisma/client";
 import { User } from "src/domain/user";
+import { Infrastructure } from "src/infrastructure";
 
 @Injectable()
 export class UserRepository {
@@ -51,4 +51,18 @@ export class UserRepository {
             throw error;
         }
     }
+
+      async findAll(): Promise<User.UserDTO[]> {
+    try {
+      return await this.infrastructure
+        .mysql
+        .user
+        .findMany();  // ← findMany로 변경
+    } catch (error) {
+      throw error;
+    }
+  }
+
+
+  
 }
