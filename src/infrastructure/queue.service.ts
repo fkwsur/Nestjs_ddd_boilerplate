@@ -1,4 +1,5 @@
 import Bull from 'bull';
+// src/infrastructure/queue.service.ts
 
 export class QueueService {
   private readonly queue: Bull.Queue;
@@ -7,62 +8,12 @@ export class QueueService {
     this.queue = new Bull('task-queue', {
       redis: { host: 'localhost', port: 6379 },
     });
-
-    // 공통 핸들러 함수
-    const handler = async (job: Bull.Job) => {
-      console.log(`[Worker] processing #${job.id} (${job.name})`);
-      try {
-        switch (job.name) {
-          case 'mail:sendWelcomeEmail':
-            await this.handleSendWelcomeEmail(job.data);
-            break;
-          case 'analytics:heavyCompute':
-            await this.handleHeavyCompute(job.data);
-            break;
-          case 'report:generateDaily':
-            await this.handleGenerateDailyReport(job.data);
-            break;
-          default:
-            console.warn(`[Worker] no handler for "${job.name}"`);
-        }
-      } catch (err) {
-        console.error(`[Worker] error in handler for "${job.name}"`, err);
-        throw err;
-      }
-    };
-
-    // 처리할 모든 잡 이름 리스트
-    const jobNames = [
-      '__default__',              // enqueue(name omitted) 용
-      'mail:sendWelcomeEmail',
-      'analytics:heavyCompute',
-      'report:generateDaily',
-    ];
-
-    // 각 이름마다 process(name, handler) 등록
-    for (const name of jobNames) {
-      this.queue.process(name, handler);
-    }
-
-    // 완료·실패 이벤트 로깅
-    this.queue.on('completed', job =>
-      console.log(`[Worker] #${job.id} (${job.name}) completed`)
-    );
-    this.queue.on('failed', (job, err) =>
-      console.error(`[Worker] #${job.id} (${job.name}) failed:`, err)
-    );
   }
 
-  /** 작업 등록 */
   enqueue(
     name: string,
     payload: any,
-    opts?: {
-      attempts?: number;
-      delay?: number;
-      priority?: number;
-      cron?: string;
-    },
+    opts?: { attempts?: number; delay?: number; priority?: number; cron?: string },
   ) {
     return this.queue.add(name, payload, {
       attempts: opts?.attempts ?? 1,
@@ -72,17 +23,52 @@ export class QueueService {
     });
   }
 
-  // === Job 핸들러 메서드들 ===
-  private async handleSendWelcomeEmail(data: any) {
-    console.log(`→ Sending welcome email to ${data.emailAddress}`);
-    // await emailClient.sendWelcome(data.emailAddress, data.userId);
+  // **수동으로 대기 중인 잡 전부 처리** (모든 job.name)
+  async processAllWaiting(): Promise<{ processed: number }> {
+    const waiting = await this.queue.getWaiting();
+    let count = 0;
+
+    for (const job of waiting) {
+      await this.handleJob(job);
+      await job.remove();  
+      count++;
+    }
+
+    return { processed: count };
   }
-  private async handleHeavyCompute(data: any) {
-    console.log(`→ Heavy compute for user ${data.userId}`);
-    // await analyticsService.compute(data.userId);
+
+  // **특정 job.name만 처리**
+  async processByName(name: string): Promise<{ processed: number }> {
+    const waitingJobs = await this.queue.getWaiting();
+    let count = 0;
+
+    for (const job of waitingJobs) {
+      if (job.name === name) {
+        await this.handleJob(job);
+        await job.moveToCompleted('done', true);
+        count++;
+      }
+    }
+
+    return { processed: count };
   }
-  private async handleGenerateDailyReport(data: any) {
-    console.log(`→ Generating daily report for ${data.date}`);
-    // await reportService.generateDaily(data.date);
+
+  // 내부 분기 로직 (Consumer 로직)
+  private async handleJob(job: Bull.Job) {
+    switch (job.name) {
+      case 'mail:sendWelcomeEmail':
+        // MailService 호출
+        console.log(`[Manual] sendWelcomeEmail →`, job.data);
+        break;
+      case 'analytics:heavyCompute':
+        console.log(`[Manual] heavyCompute →`, job.data);
+        break;
+      case 'report:generateDaily':
+        console.log(`[Manual] generateDaily →`, job.data);
+        break;
+      default:
+        console.warn(`[Manual] unknown job ${job.name}`);
+    }
   }
 }
+

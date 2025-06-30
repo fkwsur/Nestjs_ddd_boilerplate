@@ -61,6 +61,17 @@ export class UserService {
     return { message: 'Daily report job scheduled' };
   }
 
+    /** 4) 대기 중인 모든 잡을 꺼내 처리 */
+  async processAllJobs(): Promise<{ processed: number }> {
+    return this.infra.queue.processAllWaiting();
+  }
+
+  /** 5) 특정 job 이름만 꺼내 처리 */
+  async processJobByName(jobName: string): Promise<{ processed: number }> {
+    return this.infra.queue.processByName(jobName);
+  }
+
+
   async SignUp(req: User.UserDTO): Promise<Error | true> {
     try {
       req.refresh_token = this.u.jwt.CreateRefreshToken(req.id);
