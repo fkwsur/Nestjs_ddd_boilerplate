@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { User } from 'src/domain/user';
 import { Service } from '../service';
 import * as r from "./response";
@@ -9,15 +9,23 @@ export class UserController {
     private readonly svc: Service
     ) {}
 
-  @Get("/bull")
-  async BullTest(): Promise<any>  {
-   try {
-     return this.svc.userService.BullTest();
-    //  return r.Result(0);
-   } catch (error) {
-    return r.Error(error);
-   }
-  }  
+  // 1) 전체 사용자에게 환영 메일 큐잉
+  @Get('queue/welcome')
+  enqueueWelcome() {
+    return this.svc.userService.enqueueWelcomeEmails();
+  }
+
+  // 2) 특정 사용자에 대한 우선순위 작업
+  @Get('queue/analytics/:id')
+  enqueueAnalytics(@Param('id') id: string) {
+    return this.svc.userService.enqueueHeavyAnalytics(id);
+  }
+
+  // 3) 리포트 스케줄링 (단발성 스케줄링도 가능)
+  @Get('queue/schedule-report')
+  scheduleReport() {
+    return this.svc.userService.scheduleDailyReport();
+  }
 
   @Post("/signup")
   async SignUp(@Body() req : User.UserDTO): Promise<any>  {

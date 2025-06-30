@@ -14,24 +14,51 @@ export class UserService {
     private readonly infra: Infrastructure,
   ) {}
 
-  async BullTest(): Promise<Error | { count: number; message: string }> {
+    /** 1) 일반 환영 메일 즉시 큐잉 */
+  async enqueueWelcomeEmails(): Promise<Error | { count: number; message: string }> {
     try {
       const result = await this.repo.userRepository.findAll();
-        await Promise.all(
+       await Promise.all(
       result.map(u =>
-        this.infra.queue.enqueue({
-          job: 'welcome-check',
-          data: { userId: u.id, email: u.email },
-        }),
+        this.infra.queue.enqueue(
+          // ① job 이름
+          'mail:sendWelcomeEmail',
+          // ② payload
+          { userId: u.id, emailAddress: u.email },
+          // ③ 옵션(재시도 3회, 1초 지연)
+          { attempts: 3, delay: 1000 },
+        ),
       ),
     );
-      return {
+
+    return {
       count: result.length,
       message: 'Jobs enqueued',
     };
     } catch (error) {
       throw error;
     }
+  }
+
+  /** 2) 우선순위 높은 배치 작업 예시 */
+  async enqueueHeavyAnalytics(userId: string) {
+    await this.infra.queue.enqueue(
+      'analytics:heavyCompute',
+      { userId },
+      { priority: 1 }, // 1이 가장 높은 우선순위
+    );
+    return { message: 'Heavy analytics task queued' };
+  }
+
+  /** 3) 매일 자정 리포트 자동 스케줄링 */
+  async scheduleDailyReport() {
+    // cron 표현식: “0 0 * * *” → 매일 자정
+    await this.infra.queue.enqueue(
+      'report:generateDaily',
+      { date: new Date().toISOString().slice(0, 10) },
+      { cron: '0 0 * * *' },
+    );
+    return { message: 'Daily report job scheduled' };
   }
 
   async SignUp(req: User.UserDTO): Promise<Error | true> {
